@@ -36,6 +36,12 @@ class GenerateCommand extends Command
                 'MySQL username',
                 getenv('MIGRATEME_MYSQL_USER') ?: 'root'
             )
+            ->addOption(
+                'skip-rollback',
+                's',
+                InputOption::VALUE_NONE,
+                'Do not add queries for the rollback method'
+            )
             ->setHelp(<<<EOL
 This command will activate MySQL logging and waits for the user to continue. Once the user decides to continue, a new migration file will be generated.
 
@@ -64,15 +70,26 @@ EOL
         $connection = new MySQLConnection();
         $connection->connect($host, $username, $password);
 
-        foreach (['migration', 'rollback'] as $type) {
+        $types = ['migration'];
+
+        if ($input->getOption('skip-rollback') !== true) {
+            $types[] = 'rollback';
+        }
+
+        $queries = ['migration' => [], 'rollback' => []];
+
+        foreach ($types as $type) {
             $queries[$type] = $this->_collectQueries($type, $connection, $input, $output);
         }
 
         $generator = new FileGenerator();
         $generator->write($queries['migration'], $queries['rollback']);
 
-        foreach ($queries as $type => $lines) {
-            $output->writeln(sprintf("Caught %d %s queries", count($lines), $type));
+        foreach ($queries as $type => $lines)
+        {
+            if (count($lines)) {
+                $output->writeln(sprintf("Caught %d %s queries", count($lines), $type));
+            }
         }
     }
 
