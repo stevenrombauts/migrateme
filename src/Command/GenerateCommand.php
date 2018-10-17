@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace MigrateMe\Command;
 
+use MigrateMe\FileGenerator;
 use MigrateMe\Logger;
 use MigrateMe\MySQLConnection;
 
@@ -63,29 +64,33 @@ EOL
         $connection = new MySQLConnection();
         $connection->connect($host, $username, $password);
 
-        $logger     = new Logger($connection);
+        foreach (['migration', 'rollback'] as $type) {
+            $queries[$type] = $this->_collectQueries($type, $connection, $input, $output);
+        }
+
+        $generator = new FileGenerator();
+        $generator->write($queries['migration'], $queries['rollback']);
+
+        foreach ($queries as $type => $lines) {
+            $output->writeln(sprintf("Caught %d %s queries", count($lines), $type));
+        }
+    }
+
+    protected function _collectQueries(string $type, MySQLConnection $connection, InputInterface $input, OutputInterface $output)
+    {
+        $logger = new Logger($connection);
 
         $logger->start();
 
-        $output->writeln("Waiting for database changes ..");
+        $output->writeln(sprintf("Waiting for the %s queries ..", $type));
 
         $helper = $this->getHelper('question');
-        $question = new ConfirmationQuestion('Press s(top) to stop logging and create the migration file: ', false, '/^s(top)?/i');
+        $question = new ConfirmationQuestion('Press s(top) to stop logging queries: ', false, '/^s(top)?/i');
 
         while ($helper->ask($input, $output, $question) !== true) {
             // do nothing
         }
 
-        $queries = $logger->collect();
-
-        if (count($queries))
-        {
-            $template = file_get_contents(MIGRATEME_PATH . '/files/phinx.tpl');
-            $string   = implode(str_pad('', 2, PHP_EOL), $queries);
-
-            file_put_contents(MIGRATEME_PATH.'/output.php', str_replace('{QUERIES}', $string, $template));
-        }
-
-        $output->writeln(sprintf("Caught %d queries\n", count($queries)));
+        return $logger->collect();
     }
 }

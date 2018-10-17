@@ -7,7 +7,7 @@ class InstallPlgSystem404 extends AbstractMigration
     public function up()
     {
         $sql = <<<EOL
-{QUERIES}
+{MIGRATION}
 EOL;
 
         $this->execute($sql);
@@ -15,6 +15,10 @@ EOL;
 
     public function down()
     {
+        $sql = <<<EOL
+{ROLLBACK}
+EOL;
 
+        $this->execute($sql);
     }
 }
