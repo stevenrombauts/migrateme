@@ -14,6 +14,6 @@ class FileGenerator
             $template = str_replace(sprintf('{%s}', $type), $string, $template);
         }
 
-        file_put_contents(MIGRATEME_PATH.'/output.php', $template);
+        file_put_contents(MIGRATEME_PATH.'/output/output.php', $template);
     }
 }
