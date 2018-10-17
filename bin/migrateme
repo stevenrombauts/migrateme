@@ -1,0 +1,14 @@
+#!/usr/bin/env php
+<?php
+define('MIGRATEME_PATH', dirname(__DIR__));
+
+require MIGRATEME_PATH.'/vendor/autoload.php';
+
+use Symfony\Component\Console\Application;
+use MigrateMe\Command;
+
+$application = new Application();
+
+$application->add(new Command\GenerateCommand());
+
+$application->run();
