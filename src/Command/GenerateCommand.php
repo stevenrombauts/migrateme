@@ -1,5 +1,10 @@
 <?php
+declare(strict_types=1);
+
 namespace MigrateMe\Command;
+
+use MigrateMe\Logger;
+use MigrateMe\MySQLConnection;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
@@ -54,14 +59,13 @@ EOL
 
         $host     = $input->getOption('host');
         $username = $input->getOption('username');
-        
-        $mysqli = new \mysqli($host, $username, $password);
 
-        $queries = [];
-        $start   = date('Y-m-d H:i:s');
+        $connection = new MySQLConnection();
+        $connection->connect($host, $username, $password);
 
-        $mysqli->query("SET GLOBAL log_output = 'TABLE';");
-        $mysqli->query("SET GLOBAL general_log = 'ON';");
+        $logger     = new Logger($connection);
+
+        $logger->start();
 
         $output->writeln("Waiting for database changes ..");
 
@@ -72,34 +76,7 @@ EOL
             // do nothing
         }
 
-        $result = $mysqli->query("SELECT * FROM mysql.general_log WHERE event_time >= '$start';");
-
-        $database = '';
-
-        while ($query = $result->fetch_object())
-        {
-            switch ($query->command_type )
-            {
-                case 'Init DB':
-                    $database = $query->argument;
-                    break;
-                case 'Query':
-                default:
-                    //preg_match('/^[a-z]+\[([a-z]+)\] @ .+$/mi', $query->user_host, $matches);
-                    //if ($matches[1] == 'sites_example') {
-                    if ($database == 'sites_example' && preg_match('/^(INSERT|UPDATE|CREATE|DELETE) /mi', $query->argument)) {
-                        $queries[] = $query->argument;
-                    }
-                    // }
-                    break;
-            }
-        }
-
-        $mysqli->query("SET GLOBAL log_output = 'FILE';");
-        $mysqli->query("SET GLOBAL general_log = 'OFF';");
-
-        $now = date('Y-m-d H:i:s');
-        $mysqli->query("DELETE FROM mysql.general_log WHERE event_time >= '$start' AND event_time <= '$now';");
+        $queries = $logger->collect();
 
         if (count($queries))
         {
@@ -109,6 +86,6 @@ EOL
             file_put_contents(MIGRATEME_PATH.'/output.php', str_replace('{QUERIES}', $string, $template));
         }
 
-        echo sprintf("Caught %d queries\n", count($queries));
+        $output->writeln(sprintf("Caught %d queries\n", count($queries)));
     }
 }
