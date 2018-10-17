@@ -11,7 +11,6 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
 
 class GenerateCommand extends Command
@@ -78,8 +77,11 @@ EOL
 
         $queries = ['migration' => [], 'rollback' => []];
 
-        foreach ($types as $type) {
-            $queries[$type] = $this->_collectQueries($type, $connection, $input, $output);
+        foreach ($types as $type)
+        {
+            $output->writeln(sprintf("Waiting for the %s queries. Press RETURN to stop logging queries ..", $type));
+
+            $queries[$type] = $this->_collectQueries($type, $connection);
         }
 
         $generator = new FileGenerator();
@@ -93,20 +95,16 @@ EOL
         }
     }
 
-    protected function _collectQueries(string $type, MySQLConnection $connection, InputInterface $input, OutputInterface $output)
+    protected function _collectQueries(string $type, MySQLConnection $connection)
     {
         $logger = new Logger($connection);
 
         $logger->start();
 
-        $output->writeln(sprintf("Waiting for the %s queries ..", $type));
+        $stdin = fopen('php://stdin', 'r');
 
-        $helper = $this->getHelper('question');
-        $question = new ConfirmationQuestion('Press s(top) to stop logging queries: ', false, '/^s(top)?/i');
-
-        while ($helper->ask($input, $output, $question) !== true) {
-            // do nothing
-        }
+        // Wait until we receive a key press before continuing
+        fgetc($stdin);
 
         return $logger->collect();
     }
